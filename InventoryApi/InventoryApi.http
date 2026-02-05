@@ -1,0 +1,38 @@
+﻿@InventoryApi_HostAddress = https://localhost:7153
+
+POST {{InventoryApi_HostAddress}}/products
+Content-Type: application/json
+
+{
+  "name": "Raspberries",
+  "price": 3.99,
+  "stock": 100,
+  "isActive": false
+}
+
+###
+
+POST {{InventoryApi_HostAddress}}/products
+Content-Type: application/json
+{
+  "name": "Bananas",
+  "price": 1.99,
+  "stock": 30,
+  "isActive": true
+}
+
+###
+
+PATCH {{InventoryApi_HostAddress}}/products/1
+Content-Type: application/json
+{
+  "stock": 15,
+  "description": "Tasty red apples"
+}
+
+
+###
+
+PATCH {{InventoryApi_HostAddress}}/products/1/deactivate
+
+###
