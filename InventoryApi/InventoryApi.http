@@ -36,3 +36,23 @@ Content-Type: application/json
 PATCH {{InventoryApi_HostAddress}}/products/1/deactivate
 
 ###
+
+POST {{InventoryApi_HostAddress}}/customers
+Content-Type: application/json
+{
+  "name": "Julián Sierra",
+  "email": "julian.sierra@gmail.com",
+  "address": "calle 123",
+  "phone": "+34 123456789"
+}
+
+###
+
+PATCH {{InventoryApi_HostAddress}}/customers/1
+Content-Type: application/json
+{
+  "address": "rua 123",
+  "phone": "+351 123456789"
+}
+
+###

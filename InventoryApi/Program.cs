@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using InventoryApi.Data;
 using InventoryApi.Models;
 using InventoryApi.DTOs.Products;
+using InventoryApi.DTOs.Customers;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -13,13 +14,25 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Products
     if (!dbContext.Products.Any())
     {
         dbContext.Products.AddRange(
             new Product { Name = "Apples", Price = 1.20m, Stock = 100, IsActive = true },
             new Product { Name = "Bread", Price = 0.95m, Stock = 50, IsActive = true },
-            new Product { Name = "Fish", Price = 5.49m, Stock = 17 , IsActive = true }
-    );
+            new Product { Name = "Fish", Price = 5.49m, Stock = 17, IsActive = true }
+        );
+        dbContext.SaveChanges();
+    }
+
+    // Customers
+    if (!dbContext.Customers.Any())
+    {
+        dbContext.Customers.AddRange(
+            new Customer { Name = "John Doe", Email = "john.doe@gmail.com", Address = "123 street", Phone = "+1 123-456-7890" },
+            new Customer { Name = "Marijka Groen", Email = "marijka.groen@gmail.com", Address = "123 straat", Phone = "+31 123456789" }
+         );
         dbContext.SaveChanges();
     }
 }
@@ -92,6 +105,55 @@ app.MapPatch("/products/{id:int}/deactivate", async (int id, AppDbContext db) =>
     if (product is null) return Results.NotFound();
 
     product.IsActive = false;
+
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapGet("/customers", async (AppDbContext db) =>
+    await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync());
+
+app.MapGet("/customers/{id:int}", async (int id, AppDbContext db) =>
+    await db.Customers.FindAsync(id)
+        is Customer customer
+            ? Results.Ok(new CustomerDTO(customer))
+            : Results.NotFound());
+
+app.MapPost("/customers", async (CustomerCreateDTO createCustomer, AppDbContext db) =>
+{
+    Customer customer = new Customer {
+        Name = createCustomer.Name,
+        Email = createCustomer.Email,
+        Address = createCustomer.Address,
+        Phone = createCustomer.Phone
+    };
+
+    if (string.IsNullOrWhiteSpace(customer.Name))
+        return Results.BadRequest("Customer name is required.");
+    if (string.IsNullOrWhiteSpace(customer.Email))
+        return Results.BadRequest("Customer email is required.");
+
+    db.Customers.Add(customer);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/customers/{customer.Id}", customer);
+});
+
+app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCustomer, AppDbContext db) =>
+{
+    var customer = await db.Customers.FindAsync(id);
+
+    if (customer is null) return Results.NotFound();
+
+    if (patchedCustomer.Name is not null)     customer.Name = patchedCustomer.Name;
+    if (patchedCustomer.Email is not null)    customer.Email = patchedCustomer.Email;
+    if (patchedCustomer.Address is not null)  customer.Address = patchedCustomer.Address;
+    if (patchedCustomer.Phone is not null)    customer.Phone = patchedCustomer.Phone;
+
+    if (string.IsNullOrWhiteSpace(customer.Name))
+        return Results.BadRequest("Customer name is required.");
+    if (string.IsNullOrWhiteSpace(customer.Email))
+        return Results.BadRequest("Customer email is required.");
 
     await db.SaveChangesAsync();
     return Results.NoContent();
