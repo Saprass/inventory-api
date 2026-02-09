@@ -28,5 +28,24 @@ public class DbInitializer
 
         context.Products.AddRange(products);
         context.SaveChanges();
+
+        var orders = new Order[] {
+            new Order { CustomerId = 1, OrderStatus = Order.Status.Delivered, TotalAmount = 7 },
+            new Order { CustomerId = 1, OrderStatus = Order.Status.Delivered, TotalAmount = 1 },
+            new Order { CustomerId = 2, OrderStatus = Order.Status.Delivered, TotalAmount = 10 }
+        };
+
+        context.Orders.AddRange(orders);
+        context.SaveChanges();
+
+        var orderItems = new OrderItem[] {
+            new OrderItem { OrderId = 1, ProductId = 1, Quantity = 5, UnitPrice = 1.20m },
+            new OrderItem { OrderId = 1, ProductId = 2, Quantity = 2, UnitPrice = 0.95m },
+            new OrderItem { OrderId = 2, ProductId = 3, Quantity = 1, UnitPrice = 5.49m },
+            new OrderItem { OrderId = 3, ProductId = 1, Quantity = 10, UnitPrice = 1.20m }
+        };
+
+        context.OrderItems.AddRange(orderItems);
+        context.SaveChanges();
     }
 }
