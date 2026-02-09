@@ -3,39 +3,15 @@ using InventoryApi.Data;
 using InventoryApi.Models;
 using InventoryApi.DTOs.Products;
 using InventoryApi.DTOs.Customers;
+using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("InventoryApiDb"));
+        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 var app = builder.Build();
 
-// Seed the in-memory database with initial mock data
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    // Products
-    if (!dbContext.Products.Any())
-    {
-        dbContext.Products.AddRange(
-            new Product { Name = "Apples", Price = 1.20m, Stock = 100, IsActive = true },
-            new Product { Name = "Bread", Price = 0.95m, Stock = 50, IsActive = true },
-            new Product { Name = "Fish", Price = 5.49m, Stock = 17, IsActive = true }
-        );
-        dbContext.SaveChanges();
-    }
-
-    // Customers
-    if (!dbContext.Customers.Any())
-    {
-        dbContext.Customers.AddRange(
-            new Customer { Name = "John Doe", Email = "john.doe@gmail.com", Address = "123 street", Phone = "+1 123-456-7890" },
-            new Customer { Name = "Marijka Groen", Email = "marijka.groen@gmail.com", Address = "123 straat", Phone = "+31 123456789" }
-         );
-        dbContext.SaveChanges();
-    }
-}
+CreateDbIfNotExists(app);
 
 app.MapGet("/products", async (AppDbContext db) =>
     await db.Products.Select(x => new ProductDTO(x)).ToListAsync());
@@ -162,3 +138,21 @@ app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCusto
 app.MapGet("/", () => "Hello World!");
 
 app.Run();
+
+static void CreateDbIfNotExists(WebApplication app)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<AppDbContext>();
+            DbInitializer.Initialize(context);
+        }
+        catch (Exception ex)
+        {
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "An error occurred creating the DB.");
+        }
+    }
+}
