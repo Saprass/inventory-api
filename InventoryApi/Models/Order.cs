@@ -17,5 +17,5 @@ public class Order
     public decimal TotalAmount { get; set; }
 
     public Customer Customer { get; set; } = null!;
-    public ICollection<OrderItem> OrderItems { get; set; } = null!;
+    public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 }

@@ -3,6 +3,7 @@ using InventoryApi.Data;
 using InventoryApi.Models;
 using InventoryApi.DTOs.Products;
 using InventoryApi.DTOs.Customers;
+using InventoryApi.DTOs.Orders;
 using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -134,6 +135,20 @@ app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCusto
     await db.SaveChangesAsync();
     return Results.NoContent();
 });
+
+app.MapGet("/orders", async (AppDbContext db) =>
+    await db.Orders.Select(o => new OrderSummaryDTO(
+        o.Id,
+        new InventoryApi.DTOs.Common.CustomerInfoDTO(
+            o.Customer.Id,
+            o.Customer.Name
+        ),
+        o.OrderDate,
+        o.OrderStatus.ToString(),
+        o.OrderItems.Count,
+        o.TotalAmount
+    )).ToListAsync()
+);
 
 app.MapGet("/", () => "Hello World!");
 
