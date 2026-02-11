@@ -56,3 +56,11 @@ Content-Type: application/json
 }
 
 ###
+
+PATCH {{InventoryApi_HostAddress}}/orders/1/status
+Content-Type: application/json
+{
+  "status": "cancelled"
+}
+
+###

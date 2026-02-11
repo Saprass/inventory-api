@@ -4,6 +4,7 @@ using InventoryApi.Models;
 using InventoryApi.DTOs.Products;
 using InventoryApi.DTOs.Customers;
 using InventoryApi.DTOs.Orders;
+using InventoryApi.DTOs.Common;
 using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -149,6 +150,40 @@ app.MapGet("/orders", async (AppDbContext db) =>
         o.TotalAmount
     )).ToListAsync()
 );
+
+app.MapGet("/orders/{id:int}", async (int id, AppDbContext db) => {
+    var orderDto = await db.Orders
+        .Where(o => o.Id == id)
+        .Select(o => new OrderDetailDTO(
+            o.Id,
+            new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
+            o.OrderDate,
+            o.OrderStatus.ToString(),
+            o.TotalAmount,
+            o.OrderItems.Select(oi => new OrderItemDTO(
+                oi.Id,
+                new ProductInfoDTO(oi.ProductId, oi.Product.Name),
+                oi.Quantity,
+                oi.UnitPrice
+            )).ToList()
+        )).FirstOrDefaultAsync();
+
+    return orderDto is null ? Results.NotFound() : Results.Ok(orderDto);
+});
+
+app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, AppDbContext db) => 
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+
+    if (!Enum.TryParse<Order.Status>(oStatusDTO.Status, true, out var newStatus))
+        return Results.BadRequest("Invalid order status.");
+
+    order.OrderStatus = newStatus;
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
 
 app.MapGet("/", () => "Hello World!");
 
