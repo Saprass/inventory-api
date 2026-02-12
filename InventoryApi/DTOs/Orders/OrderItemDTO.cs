@@ -1,4 +1,6 @@
-﻿namespace InventoryApi.DTOs.Common;
+﻿using InventoryApi.DTOs.Common;
+
+namespace InventoryApi.DTOs.Orders;
 
 public class OrderItemDTO
 {
