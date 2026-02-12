@@ -13,7 +13,7 @@ public class Order
     public int Id { get; set; }
     public int CustomerId { get; set; }
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
-    public Status OrderStatus { get; set; }
+    public Status OrderStatus { get; set; } = Status.Pending;
     public decimal TotalAmount { get; set; }
 
     public Customer Customer { get; set; } = null!;
