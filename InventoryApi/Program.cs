@@ -5,12 +5,16 @@ using InventoryApi.DTOs.Products;
 using InventoryApi.DTOs.Customers;
 using InventoryApi.DTOs.Orders;
 using InventoryApi.DTOs.Common;
+using InventoryApi.Services;
 using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+builder.Services.AddScoped<IOrderService, OrderService>();
+
 var app = builder.Build();
 
 CreateDbIfNotExists(app);
@@ -185,43 +189,15 @@ app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oSta
     return Results.NoContent();
 });
 
-app.MapPost("/orders", async (OrderCreateDTO createOrder, AppDbContext db) =>
+app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
 {
-    var customer = await db.Customers.FindAsync(createOrder.CustomerId);
-    if (customer is null) return Results.BadRequest("Customer not found.");
-
-    var orderItems = new List<OrderItem>();
-    decimal totalAmount = 0;
-    foreach (var item in createOrder.OrderItems)
-    {
-        var product = await db.Products.FindAsync(item.ProductId);
-        if (product is null) return Results.BadRequest($"Product with ID {item.ProductId} not found.");
-        if (item.Quantity <= 0) return Results.BadRequest("Quantity must be greater than zero.");
-        if (product.Stock < item.Quantity) return Results.BadRequest($"Not enough stock for product {product.Name}.");
-        orderItems.Add(new OrderItem
-        {
-            ProductId = item.ProductId,
-            Quantity = item.Quantity,
-            UnitPrice = product.Price
-        });
-        totalAmount += product.Price * item.Quantity;
-        product.Stock -= item.Quantity;
-    }
-    var order = new Order
-    {
-        CustomerId = createOrder.CustomerId,
-        OrderDate = DateTime.UtcNow,
-        OrderStatus = Order.Status.Pending,
-        TotalAmount = totalAmount,
-        OrderItems = orderItems
-    };
-    db.Orders.Add(order);
-    await db.SaveChangesAsync();
+    var (ok, error, orderId) = await orderService.CreateOrderAsync(createOrder, db);
+    if (!ok) return Results.BadRequest(error);
 
     // Load related data for the response
 
     var dtoResp = await db.Orders
-        .Where(o => o.Id == order.Id)
+        .Where(o => o.Id == orderId)
         .Select(o => new OrderDetailDTO(
             o.Id,
             new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
@@ -236,7 +212,7 @@ app.MapPost("/orders", async (OrderCreateDTO createOrder, AppDbContext db) =>
             )).ToList()
         )).FirstOrDefaultAsync();
 
-    return Results.Created($"/orders/{order.Id}", dtoResp);
+    return Results.Created($"/orders/{orderId}", dtoResp);
 });
 
 app.MapGet("/", () => "Hello World!");

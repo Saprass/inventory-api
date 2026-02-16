@@ -82,3 +82,49 @@ Content-Type: application/json
 }
 
 ###
+
+POST {{InventoryApi_HostAddress}}/orders
+Content-Type: application/json
+{
+  "customerId": 5,
+  "orderItems": [
+    {
+      "productId": 1,
+      "quantity": 2
+    },
+    {
+      "productId": 2,
+      "quantity": 5
+    }
+  ]
+}
+
+###
+
+POST {{InventoryApi_HostAddress}}/orders
+Content-Type: application/json
+{
+  "customerId": 1,
+  "orderItems": [
+  ]
+}
+
+###
+
+      POST {{InventoryApi_HostAddress}}/orders
+Content-Type: application/json
+{
+  "customerId": 1,
+  "orderItems": [
+    {
+      "productId": 1,
+      "quantity": 90
+    },
+    {
+      "productId": 1,
+      "quantity": 50
+    }
+  ]
+}
+
+###
