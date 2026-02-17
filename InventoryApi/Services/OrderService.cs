@@ -1,15 +1,17 @@
 ﻿using InventoryApi.Data;
 using InventoryApi.DTOs.Orders;
 using InventoryApi.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
-using System.Numerics;
 
 namespace InventoryApi.Services;
 
 public class OrderService : IOrderService
 {
-    public async Task<ServiceResult<int>> CreateOrderAsync(OrderCreateDTO dto, AppDbContext db)
+    private readonly AppDbContext _db;
+
+    public OrderService(AppDbContext db) => _db = db;
+
+    public async Task<ServiceResult<int>> CreateOrderAsync(OrderCreateDTO dto)
     {
         bool ok;
         ServiceResult<int>? result = null;
@@ -18,19 +20,19 @@ public class OrderService : IOrderService
         if (!ok)
             return (ServiceResult<int>)result!;
 
-        var customer = await db.Customers.FindAsync(dto.CustomerId);
-        var products = await db.Products.Where(p => dto.OrderItems.Select(i => i.ProductId).Contains(p.Id)).ToListAsync();
+        var customer = await _db.Customers.FindAsync(dto.CustomerId);
+        var products = await _db.Products.Where(p => dto.OrderItems.Select(i => i.ProductId).Contains(p.Id)).ToListAsync();
 
         (ok, result) = ValidateBusinessRules(customer, products, dto.OrderItems);
         if (!ok)
             return (ServiceResult<int>)result!;
 
-        var order = await CreateOrder(dto, products, db);
+        var order = await CreateOrder(dto, products);
 
         return ServiceResult<int>.Success(order.Id);
     }
 
-    private static async Task<Order> CreateOrder(OrderCreateDTO dto, List<Product> products, AppDbContext db)
+    private async Task<Order> CreateOrder(OrderCreateDTO dto, List<Product> products)
     {
         var orderItems = new List<OrderItem>();
         decimal totalAmount = 0;
@@ -53,21 +55,21 @@ public class OrderService : IOrderService
             TotalAmount = totalAmount,
             OrderItems = orderItems
         };
-        db.Orders.Add(order);
-        await db.SaveChangesAsync();
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
         return order;
     }
 
-    public async Task<ServiceResult> UpdateOrderStatusAsync(int orderId, string newStatusStr, AppDbContext db)
+    public async Task<ServiceResult> UpdateOrderStatusAsync(int orderId, string newStatusStr)
     {
         bool ok = true;
         ServiceResult? result = null;
 
-        (ok, result) = ValidateReadOrder(orderId, db);
+        (ok, result) = ValidateReadOrder(orderId);
         if (!ok)
             return (ServiceResult)result!;
 
-        var order = await db.Orders.FindAsync(orderId);
+        var order = await _db.Orders.FindAsync(orderId);
 
         if (!Enum.TryParse<Order.Status>(newStatusStr, true, out var newStatus))
             return ServiceResult.BadRequest("Invalid order status.");
@@ -76,18 +78,18 @@ public class OrderService : IOrderService
         if (!ok)
             return (ServiceResult)result!;
 
-        await UpdateOrderStatus(order, newStatus, db);
+        await UpdateOrderStatus(order, newStatus);
 
         return ServiceResult.NoContent();
     }
 
-    private static async Task UpdateOrderStatus(Order order, Order.Status newStatus, AppDbContext db)
+    private async Task UpdateOrderStatus(Order order, Order.Status newStatus)
     {
         order.OrderStatus = newStatus;
-        await db.SaveChangesAsync();
+        await _db.SaveChangesAsync();
     }
 
-    private static (bool ok, ServiceResult<int>? result) ValidateCreateRequest(OrderCreateDTO dto)
+    private (bool ok, ServiceResult<int>? result) ValidateCreateRequest(OrderCreateDTO dto)
     {
         if (dto.CustomerId <= 0)
             return (false, ServiceResult<int>.BadRequest("Invalid customer ID {dto.CustomerId}."));
@@ -103,7 +105,7 @@ public class OrderService : IOrderService
         return (true, null);
     }
 
-    private static (bool ok, ServiceResult<int>? result) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
+    private (bool ok, ServiceResult<int>? result) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
     {
         if (customer is null)
             return (false, ServiceResult<int>.NotFound("Customer not found."));
@@ -124,19 +126,17 @@ public class OrderService : IOrderService
         return (true, null);
     }
 
-    private static (bool ok, ServiceResult? result) ValidateReadOrder(int orderId, AppDbContext db)
+    private (bool ok, ServiceResult? result) ValidateReadOrder(int orderId)
     {
         if (orderId <= 0)
             return (false, ServiceResult.BadRequest($"Invalid order ID {orderId}."));
-        if (!db.Orders.Any(o => o.Id == orderId))
+        if (!_db.Orders.Any(o => o.Id == orderId))
             return (false, ServiceResult.NotFound($"Order {orderId} not found."));
         return (true, null);
     }
 
-    private static (bool ok, ServiceResult? result) ValidateStatusTransition(Order.Status currentStatus, Order.Status newStatus)
+    private (bool ok, ServiceResult? result) ValidateStatusTransition(Order.Status currentStatus, Order.Status newStatus)
     {
-        //if (currentStatus == newStatus)
-        //    return (false, $"Order is already in {currentStatus} status.");
         return newStatus switch
         {
             Order.Status.Shipped => currentStatus == Order.Status.Pending

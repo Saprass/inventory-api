@@ -177,14 +177,14 @@ app.MapGet("/orders/{id:int}", async (int id, AppDbContext db) => {
 
 app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, IOrderService orderService, AppDbContext db) => 
 {
-    ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status, db);
+    ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status);
 
     return ResultHttpExtensions.ToHttpAsync(result);
 });
 
 app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
 {
-    ServiceResult<int> result = await orderService.CreateOrderAsync(createOrder, db);
+    ServiceResult<int> result = await orderService.CreateOrderAsync(createOrder);
     
     int orderId = result.Value;
     return await ResultHttpExtensions.ToHttpAsync(result, async orderId => {
