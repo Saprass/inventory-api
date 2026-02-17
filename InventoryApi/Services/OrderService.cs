@@ -3,6 +3,7 @@ using InventoryApi.DTOs.Orders;
 using InventoryApi.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using System.Numerics;
 
 namespace InventoryApi.Services;
 
@@ -57,9 +58,33 @@ public class OrderService : IOrderService
         return order;
     }
 
-    public Task<(bool ok, string? error)> UpdateOrderStatusAsync(int orderId, string newStatus)
+    public async Task<ServiceResult> UpdateOrderStatusAsync(int orderId, string newStatusStr, AppDbContext db)
     {
-        throw new NotImplementedException();
+        bool ok = true;
+        ServiceResult? result = null;
+
+        (ok, result) = ValidateReadOrder(orderId, db);
+        if (!ok)
+            return (ServiceResult)result!;
+
+        var order = await db.Orders.FindAsync(orderId);
+
+        if (!Enum.TryParse<Order.Status>(newStatusStr, true, out var newStatus))
+            return ServiceResult.BadRequest("Invalid order status.");
+
+        (ok, result) = ValidateStatusTransition(order!.OrderStatus, newStatus);
+        if (!ok)
+            return (ServiceResult)result!;
+
+        await UpdateOrderStatus(order, newStatus, db);
+
+        return ServiceResult.NoContent();
+    }
+
+    private static async Task UpdateOrderStatus(Order order, Order.Status newStatus, AppDbContext db)
+    {
+        order.OrderStatus = newStatus;
+        await db.SaveChangesAsync();
     }
 
     private static (bool ok, string? error) ValidateRequest(OrderCreateDTO dto)
@@ -99,32 +124,32 @@ public class OrderService : IOrderService
         return (true, null);
     }
 
-    private static (bool ok, string? error) ValidateReadOrder(int orderId, AppDbContext db)
+    private static (bool ok, ServiceResult? result) ValidateReadOrder(int orderId, AppDbContext db)
     {
         if (orderId <= 0)
-            return (false, $"Invalid order ID {orderId}.");
+            return (false, ServiceResult.BadRequest($"Invalid order ID {orderId}."));
         if (!db.Orders.Any(o => o.Id == orderId))
-            return (false, "Order not found.");
+            return (false, ServiceResult.NotFound($"Order {orderId} not found."));
         return (true, null);
     }
 
-    private static (bool ok, string? error) ValidateStatusTransition(Order.Status currentStatus, Order.Status newStatus)
+    private static (bool ok, ServiceResult? result) ValidateStatusTransition(Order.Status currentStatus, Order.Status newStatus)
     {
-        if (currentStatus == newStatus)
-            return (false, $"Order is already in {currentStatus} status.");
+        //if (currentStatus == newStatus)
+        //    return (false, $"Order is already in {currentStatus} status.");
         return newStatus switch
         {
             Order.Status.Shipped => currentStatus == Order.Status.Pending
                 ? (true, null)
-                : (false, $"Can only transition to {Order.Status.Shipped} from {Order.Status.Pending}."),
+                : (false, ServiceResult.Conflict($"Can only transition to {Order.Status.Shipped} from {Order.Status.Pending}.")),
             Order.Status.Delivered => currentStatus == Order.Status.Shipped
                 ? (true, null)
-                : (false, $"Can only transition to {Order.Status.Delivered} from {Order.Status.Shipped}."),
+                : (false, ServiceResult.Conflict($"Can only transition to {Order.Status.Delivered} from {Order.Status.Shipped}.")),
             Order.Status.Cancelled => currentStatus == Order.Status.Pending
                 ? (true, null)
-                : (false, $"Can only transition to {Order.Status.Cancelled} from {Order.Status.Pending}."),
-            Order.Status.Pending => (false, $"Cannot transition back to {Order.Status.Pending} status."),
-            _ => (false, "Invalid order status.")
+                : (false, ServiceResult.Conflict($"Can only transition to {Order.Status.Cancelled} from {Order.Status.Pending}.")),
+            Order.Status.Pending => (false, ServiceResult.Conflict($"Cannot transition back to {Order.Status.Pending} status.")),
+            _ => (false, ServiceResult.BadRequest("Invalid order status."))
         };
     }
 }
