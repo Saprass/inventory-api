@@ -175,18 +175,11 @@ app.MapGet("/orders/{id:int}", async (int id, AppDbContext db) => {
     return orderDto is null ? Results.NotFound() : Results.Ok(orderDto);
 });
 
-app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, AppDbContext db) => 
+app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, IOrderService orderService, AppDbContext db) => 
 {
-    var order = await db.Orders.FindAsync(id);
-    if (order is null) return Results.NotFound();
+    ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status, db);
 
-    if (!Enum.TryParse<Order.Status>(oStatusDTO.Status, true, out var newStatus))
-        return Results.BadRequest("Invalid order status.");
-
-    order.OrderStatus = newStatus;
-    await db.SaveChangesAsync();
-
-    return Results.NoContent();
+    return ResultHttpExtensions.ToHttpAsync(result);
 });
 
 app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
@@ -194,7 +187,7 @@ app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderSer
     ServiceResult<int> result = await orderService.CreateOrderAsync(createOrder, db);
     
     int orderId = result.Value;
-    return await ToHttpAsync(result, async orderId => {
+    return await ResultHttpExtensions.ToHttpAsync(result, async orderId => {
         var dtoResp = await db.Orders
             .Where(o => o.Id == orderId)
             .Select(o => new OrderDetailDTO(
@@ -236,14 +229,3 @@ static void CreateDbIfNotExists(WebApplication app)
         }
     }
 }
-
-static async Task<IResult> ToHttpAsync<T>(ServiceResult<T> result, Func<T, Task<IResult>> onSuccess) =>
-    result.Ok 
-    ? await onSuccess(result.Value!) 
-    : result.Status switch 
-    {
-        StatusCode.BadRequest => Results.BadRequest(result.Error),
-        StatusCode.NotFound => Results.NotFound(result.Error),
-        StatusCode.Conflict => Results.Conflict(result.Error),
-        _ => Results.StatusCode((int)result.Status)
-    };
