@@ -9,25 +9,25 @@ namespace InventoryApi.Services;
 
 public class OrderService : IOrderService
 {
-    public async Task<(bool ok, string? error, int? orderId)> CreateOrderAsync(OrderCreateDTO dto, AppDbContext db)
+    public async Task<ServiceResult<int>> CreateOrderAsync(OrderCreateDTO dto, AppDbContext db)
     {
-        bool ok = true;
-        string? error = null;
+        bool ok;
+        ServiceResult<int>? result = null;
 
-        (ok, error) = ValidateRequest(dto);
+        (ok, result) = ValidateCreateRequest(dto);
         if (!ok)
-            return (false, error, null);
+            return (ServiceResult<int>)result!;
 
         var customer = await db.Customers.FindAsync(dto.CustomerId);
         var products = await db.Products.Where(p => dto.OrderItems.Select(i => i.ProductId).Contains(p.Id)).ToListAsync();
 
-        (ok, error) = ValidateBusinessRules(customer, products, dto.OrderItems);
+        (ok, result) = ValidateBusinessRules(customer, products, dto.OrderItems);
         if (!ok)
-            return (false, error, null);
+            return (ServiceResult<int>)result!;
 
         var order = await CreateOrder(dto, products, db);
 
-        return (true, null, order.Id);
+        return ServiceResult<int>.Success(order.Id);
     }
 
     private static async Task<Order> CreateOrder(OrderCreateDTO dto, List<Product> products, AppDbContext db)
@@ -87,26 +87,26 @@ public class OrderService : IOrderService
         await db.SaveChangesAsync();
     }
 
-    private static (bool ok, string? error) ValidateRequest(OrderCreateDTO dto)
+    private static (bool ok, ServiceResult<int>? result) ValidateCreateRequest(OrderCreateDTO dto)
     {
         if (dto.CustomerId <= 0)
-            return (false, $"Invalid customer ID {dto.CustomerId}.");
+            return (false, ServiceResult<int>.BadRequest("Invalid customer ID {dto.CustomerId}."));
         if (dto.OrderItems.Count == 0)
-            return (false, "At least one order item is required.");
+            return (false, ServiceResult<int>.BadRequest("At least one order item is required."));
         foreach (var item in dto.OrderItems)
         {
             if (item.ProductId <= 0)
-                return (false, $"Invalid product ID {item.ProductId}.");
+                return (false, ServiceResult<int>.BadRequest($"Invalid product ID {item.ProductId}."));
             if (item.Quantity <= 0)
-                return (false, $"Product quantity must be greater than zero.");
+                return (false, ServiceResult<int>.BadRequest($"Product quantity must be greater than zero."));
         }
         return (true, null);
     }
 
-    private static (bool ok, string? error) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
+    private static (bool ok, ServiceResult<int>? result) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
     {
         if (customer is null)
-            return (false, "Customer not found.");
+            return (false, ServiceResult<int>.NotFound("Customer not found."));
 
         var quantityByProductId = items.GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
         var productById = products.ToDictionary(p => p.Id);
@@ -114,11 +114,11 @@ public class OrderService : IOrderService
         foreach (var (productId, quantityInOrder) in quantityByProductId)
         {
             if (!productById.TryGetValue(productId, out var product))
-                return (false, $"Product with ID {productId} not found.");
+                return (false, ServiceResult<int>.NotFound($"Product with ID {productId} not found."));
             if (!product.IsActive)
-                return (false, $"Product {product.Name} is not available.");
+                return (false, ServiceResult<int>.Conflict($"Product {product.Name} is not available."));
             if (product.Stock < quantityInOrder)
-                return (false, $"Not enough stock for {product.Name}.");
+                return (false, ServiceResult<int>.Conflict($"Not enough stock for {product.Name}."));
         }
 
         return (true, null);

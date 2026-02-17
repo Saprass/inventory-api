@@ -191,28 +191,28 @@ app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oSta
 
 app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
 {
-    var (ok, error, orderId) = await orderService.CreateOrderAsync(createOrder, db);
-    if (!ok) return Results.BadRequest(error);
+    ServiceResult<int> result = await orderService.CreateOrderAsync(createOrder, db);
+    
+    int orderId = result.Value;
+    return await ToHttpAsync(result, async orderId => {
+        var dtoResp = await db.Orders
+            .Where(o => o.Id == orderId)
+            .Select(o => new OrderDetailDTO(
+                o.Id,
+                new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
+                o.OrderDate,
+                o.OrderStatus.ToString(),
+                o.TotalAmount,
+                o.OrderItems.Select(oi => new OrderItemDTO(
+                    oi.Id,
+                    new ProductInfoDTO(oi.ProductId, oi.Product.Name),
+                    oi.Quantity,
+                    oi.UnitPrice
+                )).ToList()
+            )).FirstOrDefaultAsync();
 
-    // Load related data for the response
-
-    var dtoResp = await db.Orders
-        .Where(o => o.Id == orderId)
-        .Select(o => new OrderDetailDTO(
-            o.Id,
-            new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
-            o.OrderDate,
-            o.OrderStatus.ToString(),
-            o.TotalAmount,
-            o.OrderItems.Select(oi => new OrderItemDTO(
-                oi.Id,
-                new ProductInfoDTO(oi.ProductId, oi.Product.Name),
-                oi.Quantity,
-                oi.UnitPrice
-            )).ToList()
-        )).FirstOrDefaultAsync();
-
-    return Results.Created($"/orders/{orderId}", dtoResp);
+        return Results.Created($"/orders/{orderId}", dtoResp);
+    });
 });
 
 app.MapGet("/", () => "Hello World!");
@@ -236,3 +236,14 @@ static void CreateDbIfNotExists(WebApplication app)
         }
     }
 }
+
+static async Task<IResult> ToHttpAsync<T>(ServiceResult<T> result, Func<T, Task<IResult>> onSuccess) =>
+    result.Ok 
+    ? await onSuccess(result.Value!) 
+    : result.Status switch 
+    {
+        StatusCode.BadRequest => Results.BadRequest(result.Error),
+        StatusCode.NotFound => Results.NotFound(result.Error),
+        StatusCode.Conflict => Results.Conflict(result.Error),
+        _ => Results.StatusCode((int)result.Status)
+    };

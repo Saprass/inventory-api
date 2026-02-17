@@ -6,6 +6,6 @@ namespace InventoryApi.Services;
 
 public interface IOrderService
 {
-    public Task<(bool ok, string? error, int? orderId)> CreateOrderAsync(OrderCreateDTO dto, AppDbContext db);
+    public Task<ServiceResult<int>> CreateOrderAsync(OrderCreateDTO dto, AppDbContext db);
     public Task<ServiceResult> UpdateOrderStatusAsync(int orderId, string newStatus, AppDbContext db);
 }
