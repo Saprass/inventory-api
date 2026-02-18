@@ -6,6 +6,7 @@ using InventoryApi.DTOs.Customers;
 using InventoryApi.DTOs.Orders;
 using InventoryApi.DTOs.Common;
 using InventoryApi.Services;
+using InventoryApi.Mappings;
 using System.Runtime.CompilerServices;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -141,36 +142,20 @@ app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCusto
     return Results.NoContent();
 });
 
-app.MapGet("/orders", async (AppDbContext db) =>
-    await db.Orders.Select(o => new OrderSummaryDTO(
-        o.Id,
-        new InventoryApi.DTOs.Common.CustomerInfoDTO(
-            o.Customer.Id,
-            o.Customer.Name
-        ),
-        o.OrderDate,
-        o.OrderStatus.ToString(),
-        o.OrderItems.Count,
-        o.TotalAmount
-    )).ToListAsync()
-);
+app.MapGet("/orders", async (AppDbContext db) => 
+{
+    var orders = await db.Orders
+        .SelectOrderSummary()
+        .ToListAsync();
+    
+    return Results.Ok(orders);
+});
 
-app.MapGet("/orders/{id:int}", async (int id, AppDbContext db) => {
+app.MapGet("/orders/{id:int:min(1)}", async (int id, AppDbContext db) => 
+{
     var orderDto = await db.Orders
-        .Where(o => o.Id == id)
-        .Select(o => new OrderDetailDTO(
-            o.Id,
-            new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
-            o.OrderDate,
-            o.OrderStatus.ToString(),
-            o.TotalAmount,
-            o.OrderItems.Select(oi => new OrderItemDTO(
-                oi.Id,
-                new ProductInfoDTO(oi.ProductId, oi.Product.Name),
-                oi.Quantity,
-                oi.UnitPrice
-            )).ToList()
-        )).FirstOrDefaultAsync();
+        .SelectOrderDetail(id)
+        .FirstOrDefaultAsync();
 
     return orderDto is null ? Results.NotFound() : Results.Ok(orderDto);
 });
@@ -179,7 +164,7 @@ app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oSta
 {
     ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status);
 
-    return ResultHttpExtensions.ToHttpAsync(result);
+    return ResultHttpExtensions.ToHttp(result);
 });
 
 app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
