@@ -22,9 +22,9 @@ var app = builder.Build();
 CreateDbIfNotExists(app);
 
 app.MapGet("/products", async (AppDbContext db) =>
-    await db.Products.Select(x => new ProductDTO(x)).ToListAsync());
+    Results.Ok(await db.Products.Select(x => new ProductDTO(x)).ToListAsync()));
 
-app.MapGet("/products/{id:int}", async (int id, AppDbContext db) =>
+app.MapGet("/products/{id:int:min(1)}", async (int id, AppDbContext db) =>
     await db.Products.FindAsync(id)
         is Product product
             ? Results.Ok(new ProductDTO(product))
@@ -56,7 +56,7 @@ app.MapPost("/products", async (ProductCreateDTO createProduct, AppDbContext db)
     return Results.Created($"/products/{product.Id}", product);
 });
 
-app.MapPatch("/products/{id:int}", async (int id, ProductPatchDTO patchedProduct, AppDbContext db) =>
+app.MapPatch("/products/{id:int:min(1)}", async (int id, ProductPatchDTO patchedProduct, AppDbContext db) =>
 {
     var product = await db.Products.FindAsync(id);
 
@@ -82,7 +82,7 @@ app.MapPatch("/products/{id:int}", async (int id, ProductPatchDTO patchedProduct
     return Results.NoContent();
 });
 
-app.MapPatch("/products/{id:int}/deactivate", async (int id, AppDbContext db) =>
+app.MapPatch("/products/{id:int:min(1)}/deactivate", async (int id, AppDbContext db) =>
 {
     var product = await db.Products.FindAsync(id);
 
@@ -97,7 +97,7 @@ app.MapPatch("/products/{id:int}/deactivate", async (int id, AppDbContext db) =>
 app.MapGet("/customers", async (AppDbContext db) =>
     Results.Ok((await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync())));
 
-app.MapGet("/customers/{id:int}", async (int id, AppDbContext db) =>
+app.MapGet("/customers/{id:int:min(1)}", async (int id, AppDbContext db) =>
     await db.Customers.FindAsync(id)
         is Customer customer
             ? Results.Ok(new CustomerDTO(customer))
@@ -116,7 +116,7 @@ app.MapPost("/customers", async (CustomerCreateDTO createCustomer, ICustomerServ
     return Results.Created($"/customers/{customerId}", dtoResp);
 });
 
-app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCustomer, ICustomerService customerService, AppDbContext db) =>
+app.MapPatch("/customers/{id:int:min(1)}", async (int id, CustomerPatchDTO patchedCustomer, ICustomerService customerService, AppDbContext db) =>
 {
     ServiceResult result = await customerService.UpdateCustomerAsync(id, patchedCustomer);
 
@@ -141,7 +141,7 @@ app.MapGet("/orders/{id:int:min(1)}", async (int id, AppDbContext db) =>
     return orderDto is null ? Results.NotFound() : Results.Ok(orderDto);
 });
 
-app.MapPatch("/orders/{id:int}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, IOrderService orderService, AppDbContext db) => 
+app.MapPatch("/orders/{id:int:min(1)}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, IOrderService orderService, AppDbContext db) => 
 {
     ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status);
 
