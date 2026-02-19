@@ -92,7 +92,7 @@ public class OrderService : IOrderService
     private (bool ok, ServiceResult<int>? result) ValidateCreateRequest(OrderCreateDTO dto)
     {
         if (dto.CustomerId <= 0)
-            return (false, ServiceResult<int>.BadRequest("Invalid customer ID {dto.CustomerId}."));
+            return (false, ServiceResult<int>.BadRequest($"Invalid customer ID {dto.CustomerId}."));
         if (dto.OrderItems.Count == 0)
             return (false, ServiceResult<int>.BadRequest("At least one order item is required."));
         foreach (var item in dto.OrderItems)

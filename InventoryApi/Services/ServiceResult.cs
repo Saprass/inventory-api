@@ -13,11 +13,11 @@ public enum StatusCode
     Forbiden = 403
 }
 
-public readonly record struct ServiceResult<T>(StatusCode Status, T? Value, string? Error)
+public readonly record struct ServiceResult<T>(StatusCode Status, T? Value, string? Msg)
 {
     public bool Ok => (int)Status is >= 200 and < 300;
     public static ServiceResult<T> Success(T value) => new(StatusCode.Success, value, null);
-    public static ServiceResult<T> Created(T value) => new(StatusCode.Created, value, null);
+    public static ServiceResult<T> Created(T value, string? msg = null) => new(StatusCode.Created, value, msg);
     public static ServiceResult<T> BadRequest(string error) => new(StatusCode.BadRequest, default, error);
     public static ServiceResult<T> Conflict(string error) => new(StatusCode.Conflict, default, error);
     public static ServiceResult<T> NotFound(string error) => new(StatusCode.NotFound, default, error);

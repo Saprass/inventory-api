@@ -48,7 +48,7 @@ Content-Type: application/json
 
 ###
 
-PATCH {{InventoryApi_HostAddress}}/customers/1
+PATCH {{InventoryApi_HostAddress}}/customers/6
 Content-Type: application/json
 {
   "address": "rua 123",

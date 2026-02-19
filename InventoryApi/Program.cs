@@ -15,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
 
 var app = builder.Build();
 
@@ -94,7 +95,7 @@ app.MapPatch("/products/{id:int}/deactivate", async (int id, AppDbContext db) =>
 });
 
 app.MapGet("/customers", async (AppDbContext db) =>
-    await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync());
+    Results.Ok((await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync())));
 
 app.MapGet("/customers/{id:int}", async (int id, AppDbContext db) =>
     await db.Customers.FindAsync(id)
@@ -102,44 +103,24 @@ app.MapGet("/customers/{id:int}", async (int id, AppDbContext db) =>
             ? Results.Ok(new CustomerDTO(customer))
             : Results.NotFound());
 
-app.MapPost("/customers", async (CustomerCreateDTO createCustomer, AppDbContext db) =>
+app.MapPost("/customers", async (CustomerCreateDTO createCustomer, ICustomerService customerService, AppDbContext db) =>
 {
-    Customer customer = new Customer {
-        Name = createCustomer.Name,
-        Email = createCustomer.Email,
-        Address = createCustomer.Address,
-        Phone = createCustomer.Phone
-    };
+    ServiceResult<int> result = await customerService.CreateCustomerAsync(createCustomer);
+    int customerId = result.Value;
 
-    if (string.IsNullOrWhiteSpace(customer.Name))
-        return Results.BadRequest("Customer name is required.");
-    if (string.IsNullOrWhiteSpace(customer.Email))
-        return Results.BadRequest("Customer email is required.");
+    CustomerDTO dtoResp = await db.Customers
+        .Where(c => c.Id == customerId)
+        .Select(c => new CustomerDTO(c))
+        .FirstAsync();
 
-    db.Customers.Add(customer);
-    await db.SaveChangesAsync();
-
-    return Results.Created($"/customers/{customer.Id}", customer);
+    return Results.Created($"/customers/{customerId}", dtoResp);
 });
 
-app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCustomer, AppDbContext db) =>
+app.MapPatch("/customers/{id:int}", async (int id, CustomerPatchDTO patchedCustomer, ICustomerService customerService, AppDbContext db) =>
 {
-    var customer = await db.Customers.FindAsync(id);
+    ServiceResult result = await customerService.UpdateCustomerAsync(id, patchedCustomer);
 
-    if (customer is null) return Results.NotFound();
-
-    if (patchedCustomer.Name is not null)     customer.Name = patchedCustomer.Name;
-    if (patchedCustomer.Email is not null)    customer.Email = patchedCustomer.Email;
-    if (patchedCustomer.Address is not null)  customer.Address = patchedCustomer.Address;
-    if (patchedCustomer.Phone is not null)    customer.Phone = patchedCustomer.Phone;
-
-    if (string.IsNullOrWhiteSpace(customer.Name))
-        return Results.BadRequest("Customer name is required.");
-    if (string.IsNullOrWhiteSpace(customer.Email))
-        return Results.BadRequest("Customer email is required.");
-
-    await db.SaveChangesAsync();
-    return Results.NoContent();
+    return ResultHttpExtensions.ToHttp(result);
 });
 
 app.MapGet("/orders", async (AppDbContext db) => 
