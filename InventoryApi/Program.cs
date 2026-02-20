@@ -4,7 +4,6 @@ using InventoryApi.Models;
 using InventoryApi.DTOs.Products;
 using InventoryApi.DTOs.Customers;
 using InventoryApi.DTOs.Orders;
-using InventoryApi.DTOs.Common;
 using InventoryApi.Services;
 using InventoryApi.Mappings;
 
@@ -32,15 +31,9 @@ app.MapGet("/products/{id:int:min(1)}", async (int id, AppDbContext db) =>
 
 app.MapPost("/products", async (ProductCreateDTO createProduct, IProductService productService, AppDbContext db) =>
 {
-    ServiceResult<int> result = await productService.CreateProductAsync(createProduct);
+    ServiceResult<ProductDTO> result = await productService.CreateProductAsync(createProduct);
 
-    return await ResultHttpExtensions.ToHttpAsync(result, async productId => {
-        var dtoResp = await db.Products
-            .Where(p => p.Id == productId)
-            .Select(p => new ProductDTO(p))
-            .FirstAsync();
-        return Results.Created($"/products/{productId}", dtoResp);
-    });
+    return ResultHttpExtensions.ToHttp(result);
 });
 
 app.MapPatch("/products/{id:int:min(1)}", async (int id, ProductPatchDTO patchedProduct, IProductService productService, AppDbContext db) =>
@@ -68,15 +61,9 @@ app.MapGet("/customers/{id:int:min(1)}", async (int id, AppDbContext db) =>
 
 app.MapPost("/customers", async (CustomerCreateDTO createCustomer, ICustomerService customerService, AppDbContext db) =>
 {
-    ServiceResult<int> result = await customerService.CreateCustomerAsync(createCustomer);
-    int customerId = result.Value;
+    ServiceResult<CustomerDTO> result = await customerService.CreateCustomerAsync(createCustomer);
 
-    CustomerDTO dtoResp = await db.Customers
-        .Where(c => c.Id == customerId)
-        .Select(c => new CustomerDTO(c))
-        .FirstAsync();
-
-    return Results.Created($"/customers/{customerId}", dtoResp);
+    return ResultHttpExtensions.ToHttp(result);
 });
 
 app.MapPatch("/customers/{id:int:min(1)}", async (int id, CustomerPatchDTO patchedCustomer, ICustomerService customerService, AppDbContext db) =>
@@ -113,28 +100,9 @@ app.MapPatch("/orders/{id:int:min(1)}/status", async (int id, OrderStatusUpdateD
 
 app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
 {
-    ServiceResult<int> result = await orderService.CreateOrderAsync(createOrder);
-    
-    int orderId = result.Value;
-    return await ResultHttpExtensions.ToHttpAsync(result, async orderId => {
-        var dtoResp = await db.Orders
-            .Where(o => o.Id == orderId)
-            .Select(o => new OrderDetailDTO(
-                o.Id,
-                new CustomerInfoDTO(o.Customer.Id, o.Customer.Name),
-                o.OrderDate,
-                o.OrderStatus.ToString(),
-                o.TotalAmount,
-                o.OrderItems.Select(oi => new OrderItemDTO(
-                    oi.Id,
-                    new ProductInfoDTO(oi.ProductId, oi.Product.Name),
-                    oi.Quantity,
-                    oi.UnitPrice
-                )).ToList()
-            )).FirstOrDefaultAsync();
+    ServiceResult<OrderDetailDTO> result = await orderService.CreateOrderAsync(createOrder);
 
-        return Results.Created($"/orders/{orderId}", dtoResp);
-    });
+    return ResultHttpExtensions.ToHttp(result);
 });
 
 app.MapGet("/", () => "Hello World!");

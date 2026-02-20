@@ -10,14 +10,14 @@ public class CustomerService : ICustomerService
 
     public CustomerService(AppDbContext db) => _db = db;
 
-    public async Task<ServiceResult<int>> CreateCustomerAsync(CustomerCreateDTO dto)
+    public async Task<ServiceResult<CustomerDTO>> CreateCustomerAsync(CustomerCreateDTO dto)
     {
         bool ok;
-        ServiceResult<int>? result = null;
+        ServiceResult<CustomerDTO>? result = null;
 
         (ok, result) = ValidateCreateRequest(dto);
         if (!ok)
-            return (ServiceResult<int>)result!;
+            return (ServiceResult<CustomerDTO>)result!;
 
         Customer customer = new Customer {
             Name = dto.Name,
@@ -29,7 +29,10 @@ public class CustomerService : ICustomerService
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync();
 
-        return ServiceResult<int>.Created(customer.Id, $"/customers/{customer.Id}");
+        CustomerDTO dtoResp = new CustomerDTO(customer);
+
+
+        return ServiceResult<CustomerDTO>.Created(dtoResp, $"/customers/{customer.Id}");
     }
 
     public async Task<ServiceResult> UpdateCustomerAsync(int customerId, CustomerPatchDTO dto)
@@ -55,12 +58,12 @@ public class CustomerService : ICustomerService
         return ServiceResult.NoContent();
     }
 
-    private (bool ok, ServiceResult<int>? result) ValidateCreateRequest(CustomerCreateDTO dto)
+    private (bool ok, ServiceResult<CustomerDTO>? result) ValidateCreateRequest(CustomerCreateDTO dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
-            return (false, ServiceResult<int>.BadRequest("Customer name is required."));
+            return (false, ServiceResult<CustomerDTO>.BadRequest("Customer name is required."));
         if (string.IsNullOrWhiteSpace(dto.Email))
-            return (false, ServiceResult<int>.BadRequest("Customer email is required."));
+            return (false, ServiceResult<CustomerDTO>.BadRequest("Customer email is required."));
         return (true, null);
     }
 

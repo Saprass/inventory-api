@@ -1,4 +1,5 @@
 ﻿using InventoryApi.Data;
+using InventoryApi.DTOs.Common;
 using InventoryApi.DTOs.Orders;
 using InventoryApi.Models;
 using Microsoft.EntityFrameworkCore;
@@ -11,25 +12,39 @@ public class OrderService : IOrderService
 
     public OrderService(AppDbContext db) => _db = db;
 
-    public async Task<ServiceResult<int>> CreateOrderAsync(OrderCreateDTO dto)
+    public async Task<ServiceResult<OrderDetailDTO>> CreateOrderAsync(OrderCreateDTO dto)
     {
         bool ok;
-        ServiceResult<int>? result = null;
+        ServiceResult<OrderDetailDTO>? result = null;
 
         (ok, result) = ValidateCreateRequest(dto);
         if (!ok)
-            return (ServiceResult<int>)result!;
+            return (ServiceResult<OrderDetailDTO>)result!;
 
         var customer = await _db.Customers.FindAsync(dto.CustomerId);
         var products = await _db.Products.Where(p => dto.OrderItems.Select(i => i.ProductId).Contains(p.Id)).ToListAsync();
 
         (ok, result) = ValidateBusinessRules(customer, products, dto.OrderItems);
         if (!ok)
-            return (ServiceResult<int>)result!;
+            return (ServiceResult<OrderDetailDTO>)result!;
 
         var order = await CreateOrder(dto, products);
 
-        return ServiceResult<int>.Success(order.Id);
+        var dtoResp = new OrderDetailDTO(
+                order.Id,
+                new CustomerInfoDTO(order.Customer.Id, order.Customer.Name),
+                order.OrderDate,
+                order.OrderStatus.ToString(),
+                order.TotalAmount,
+                order.OrderItems.Select(oi => new OrderItemDTO(
+                    oi.Id,
+                    new ProductInfoDTO(oi.ProductId, oi.Product.Name),
+                    oi.Quantity,
+                    oi.UnitPrice
+                )).ToList()
+        );
+
+        return ServiceResult<OrderDetailDTO>.Created(dtoResp, $"/orders/{dtoResp.Id}");
     }
 
     private async Task<Order> CreateOrder(OrderCreateDTO dto, List<Product> products)
@@ -89,26 +104,26 @@ public class OrderService : IOrderService
         await _db.SaveChangesAsync();
     }
 
-    private (bool ok, ServiceResult<int>? result) ValidateCreateRequest(OrderCreateDTO dto)
+    private (bool ok, ServiceResult<OrderDetailDTO>? result) ValidateCreateRequest(OrderCreateDTO dto)
     {
         if (dto.CustomerId <= 0)
-            return (false, ServiceResult<int>.BadRequest($"Invalid customer ID {dto.CustomerId}."));
+            return (false, ServiceResult<OrderDetailDTO>.BadRequest($"Invalid customer ID {dto.CustomerId}."));
         if (dto.OrderItems.Count == 0)
-            return (false, ServiceResult<int>.BadRequest("At least one order item is required."));
+            return (false, ServiceResult<OrderDetailDTO>.BadRequest("At least one order item is required."));
         foreach (var item in dto.OrderItems)
         {
             if (item.ProductId <= 0)
-                return (false, ServiceResult<int>.BadRequest($"Invalid product ID {item.ProductId}."));
+                return (false, ServiceResult<OrderDetailDTO>.BadRequest($"Invalid product ID {item.ProductId}."));
             if (item.Quantity <= 0)
-                return (false, ServiceResult<int>.BadRequest($"Product quantity must be greater than zero."));
+                return (false, ServiceResult<OrderDetailDTO>.BadRequest($"Product quantity must be greater than zero."));
         }
         return (true, null);
     }
 
-    private (bool ok, ServiceResult<int>? result) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
+    private (bool ok, ServiceResult<OrderDetailDTO>? result) ValidateBusinessRules(Customer? customer, List<Product> products, List<OrderItemCreateDTO> items)
     {
         if (customer is null)
-            return (false, ServiceResult<int>.NotFound("Customer not found."));
+            return (false, ServiceResult<OrderDetailDTO>.NotFound("Customer not found."));
 
         var quantityByProductId = items.GroupBy(i => i.ProductId).ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
         var productById = products.ToDictionary(p => p.Id);
@@ -116,11 +131,11 @@ public class OrderService : IOrderService
         foreach (var (productId, quantityInOrder) in quantityByProductId)
         {
             if (!productById.TryGetValue(productId, out var product))
-                return (false, ServiceResult<int>.NotFound($"Product with ID {productId} not found."));
+                return (false, ServiceResult<OrderDetailDTO>.NotFound($"Product with ID {productId} not found."));
             if (!product.IsActive)
-                return (false, ServiceResult<int>.Conflict($"Product {product.Name} is not available."));
+                return (false, ServiceResult<OrderDetailDTO>.Conflict($"Product {product.Name} is not available."));
             if (product.Stock < quantityInOrder)
-                return (false, ServiceResult<int>.Conflict($"Not enough stock for {product.Name}."));
+                return (false, ServiceResult<OrderDetailDTO>.Conflict($"Not enough stock for {product.Name}."));
         }
 
         return (true, null);

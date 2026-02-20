@@ -10,14 +10,14 @@ public class ProductService : IProductService
 
     public ProductService(AppDbContext db) => _db = db;
 
-    public async Task<ServiceResult<int>> CreateProductAsync(ProductCreateDTO dto)
+    public async Task<ServiceResult<ProductDTO>> CreateProductAsync(ProductCreateDTO dto)
     {
         bool ok;
-        ServiceResult<int>? result = null;
+        ServiceResult<ProductDTO>? result = null;
 
         (ok, result) = ValidateCreateProduct(dto);
         if (!ok)
-            return (ServiceResult<int>)result!;
+            return (ServiceResult<ProductDTO>)result!;
 
         Product product = new Product {
             Name = dto.Name,
@@ -30,7 +30,9 @@ public class ProductService : IProductService
         _db.Products.Add(product);
         await _db.SaveChangesAsync();
 
-        return ServiceResult<int>.Created(product.Id, $"/products/{product.Id}");
+        ProductDTO dtoResp = new ProductDTO(product);
+
+        return ServiceResult<ProductDTO>.Created(dtoResp, $"/products/{dtoResp.Id}");
     }
 
     public async Task<ServiceResult> UpdateProductAsync(int productId, ProductPatchDTO dto)
@@ -77,14 +79,14 @@ public class ProductService : IProductService
         return ServiceResult.NoContent();
     }
 
-    private (bool ok, ServiceResult<int>? result) ValidateCreateProduct(ProductCreateDTO dto)
+    private (bool ok, ServiceResult<ProductDTO>? result) ValidateCreateProduct(ProductCreateDTO dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
-            return (false, ServiceResult<int>.BadRequest("Product name is required."));
+            return (false, ServiceResult<ProductDTO>.BadRequest("Product name is required."));
         if (dto.Price < 0)
-            return (false, ServiceResult<int>.BadRequest("Price cannot be negative."));
+            return (false, ServiceResult<ProductDTO>.BadRequest("Price cannot be negative."));
         if (dto.Stock < 0)
-            return (false, ServiceResult<int>.BadRequest("Stock cannot be negative."));
+            return (false, ServiceResult<ProductDTO>.BadRequest("Stock cannot be negative."));
         return (true, null);
     }
 
