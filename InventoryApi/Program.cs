@@ -12,11 +12,31 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApiDocument(config => 
+{
+    config.DocumentName = "InventoryAPI";
+    config.Title = "Inventory API";
+    config.Version = "v1";
+});
+
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseOpenApi();
+    app.UseSwaggerUi(config => 
+    {
+        config.DocumentTitle = "Inventory API Documentation";
+        config.Path = "/swagger";
+        config.DocumentPath = "/swagger/{documentName}/swagger.json";
+        config.DocExpansion = "list";
+    });
+}
 
 CreateDbIfNotExists(app);
 
@@ -104,8 +124,6 @@ app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderSer
 
     return ResultHttpExtensions.ToHttp(result);
 });
-
-app.MapGet("/", () => "Hello World!");
 
 app.Run();
 
