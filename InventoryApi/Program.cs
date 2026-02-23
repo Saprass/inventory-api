@@ -12,6 +12,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApiDocument(config => 
 {
@@ -40,35 +42,7 @@ if (app.Environment.IsDevelopment())
 
 CreateDbIfNotExists(app);
 
-app.MapGet("/products", async (AppDbContext db) =>
-    Results.Ok(await db.Products.Select(x => new ProductDTO(x)).ToListAsync()));
-
-app.MapGet("/products/{id:int:min(1)}", async (int id, AppDbContext db) =>
-    await db.Products.FindAsync(id)
-        is Product product
-            ? Results.Ok(new ProductDTO(product))
-            : Results.NotFound());
-
-app.MapPost("/products", async (ProductCreateDTO createProduct, IProductService productService, AppDbContext db) =>
-{
-    ServiceResult<ProductDTO> result = await productService.CreateProductAsync(createProduct);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
-
-app.MapPatch("/products/{id:int:min(1)}", async (int id, ProductPatchDTO patchedProduct, IProductService productService, AppDbContext db) =>
-{
-    ServiceResult result = await productService.UpdateProductAsync(id, patchedProduct);
-    
-    return ResultHttpExtensions.ToHttp(result);
-});
-
-app.MapPatch("/products/{id:int:min(1)}/deactivate", async (int id, IProductService productService, AppDbContext db) =>
-{
-    ServiceResult result = await productService.DeactivateProductAsync(id, false);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
+app.MapControllers();
 
 app.MapGet("/customers", async (AppDbContext db) =>
     Results.Ok((await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync())));
