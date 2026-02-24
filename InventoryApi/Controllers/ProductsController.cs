@@ -32,13 +32,6 @@ public class ProductsController : ControllerBase
     [HttpGet("{id:int:min(1)}")]
     public async Task<IActionResult> GetById(int id)
     {
-        //ProductDTO? product = await _db.Products
-        //    .AsNoTracking()
-        //    .Where(p => p.Id == id)
-        //    .Select(p => new ProductDTO(p))
-        //    .FirstOrDefaultAsync();
-        //return product is not null ? Ok(product) : NotFound();
-
         return await _db.Products.FindAsync(id)
         is Product product
             ? Ok(new ProductDTO(product))
