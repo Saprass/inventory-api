@@ -89,7 +89,6 @@ http://localhost:xxxx/swagger
 
 ## How to run
 
-Open bash terminal in **InventoryApi\InventoryApi directory**
-Restore NuGet packages with `dotnet restore`
-Run the app with `dotnet run`
-The application will start on a local development port  (e.g. http://localhost:5131)
+1. Open bash terminal in **InventoryApi\InventoryApi directory**
+2. Restore NuGet packages with `dotnet restore`
+3. Run the app with `dotnet run`. The application will start on a local development port  (e.g. http://localhost:5131)
