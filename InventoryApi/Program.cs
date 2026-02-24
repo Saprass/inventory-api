@@ -1,8 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using InventoryApi.Data;
-using InventoryApi.Models;
-using InventoryApi.DTOs.Products;
-using InventoryApi.DTOs.Customers;
 using InventoryApi.DTOs.Orders;
 using InventoryApi.Services;
 using InventoryApi.Mappings;
@@ -43,29 +40,6 @@ if (app.Environment.IsDevelopment())
 CreateDbIfNotExists(app);
 
 app.MapControllers();
-
-app.MapGet("/customers", async (AppDbContext db) =>
-    Results.Ok((await db.Customers.Select(x => new CustomerDTO(x)).ToListAsync())));
-
-app.MapGet("/customers/{id:int:min(1)}", async (int id, AppDbContext db) =>
-    await db.Customers.FindAsync(id)
-        is Customer customer
-            ? Results.Ok(new CustomerDTO(customer))
-            : Results.NotFound());
-
-app.MapPost("/customers", async (CustomerCreateDTO createCustomer, ICustomerService customerService, AppDbContext db) =>
-{
-    ServiceResult<CustomerDTO> result = await customerService.CreateCustomerAsync(createCustomer);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
-
-app.MapPatch("/customers/{id:int:min(1)}", async (int id, CustomerPatchDTO patchedCustomer, ICustomerService customerService, AppDbContext db) =>
-{
-    ServiceResult result = await customerService.UpdateCustomerAsync(id, patchedCustomer);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
 
 app.MapGet("/orders", async (AppDbContext db) => 
 {
