@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using InventoryApi.Data;
-using InventoryApi.DTOs.Orders;
 using InventoryApi.Services;
-using InventoryApi.Mappings;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -40,38 +38,6 @@ if (app.Environment.IsDevelopment())
 CreateDbIfNotExists(app);
 
 app.MapControllers();
-
-app.MapGet("/orders", async (AppDbContext db) => 
-{
-    var orders = await db.Orders
-        .SelectOrderSummary()
-        .ToListAsync();
-    
-    return Results.Ok(orders);
-});
-
-app.MapGet("/orders/{id:int:min(1)}", async (int id, AppDbContext db) => 
-{
-    var orderDto = await db.Orders
-        .SelectOrderDetail(id)
-        .FirstOrDefaultAsync();
-
-    return orderDto is null ? Results.NotFound() : Results.Ok(orderDto);
-});
-
-app.MapPatch("/orders/{id:int:min(1)}/status", async (int id, OrderStatusUpdateDTO oStatusDTO, IOrderService orderService, AppDbContext db) => 
-{
-    ServiceResult result = await orderService.UpdateOrderStatusAsync(id, oStatusDTO.Status);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
-
-app.MapPost("/orders", async (OrderCreateDTO createOrder, IOrderService orderService, AppDbContext db) =>
-{
-    ServiceResult<OrderDetailDTO> result = await orderService.CreateOrderAsync(createOrder);
-
-    return ResultHttpExtensions.ToHttp(result);
-});
 
 app.Run();
 
